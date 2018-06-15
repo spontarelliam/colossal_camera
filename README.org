@@ -1,0 +1,2 @@
+* Overview
+The colossal camera is built using two Raspberry Pi's: one to serve as the camera (camerapi) and one to interface with a display screen (displaypi).
