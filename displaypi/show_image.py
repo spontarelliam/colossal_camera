@@ -6,9 +6,13 @@
 import cv2
 import os, sys
 import time
+import datetime
 
 image_dir = "/home/pi/Pictures/"
 logfile = "/home/pi/colossal_camera/displaypi/display.log"
+lastfile=''
+start_time = time.time() -5
+newfile = False
 
 def check_log(filename):
     with open(logfile, "r") as f:
@@ -20,27 +24,38 @@ def check_log(filename):
 
 def add_log(filename):
     with open(logfile, "a") as f:
-        f.writelines(filename)
+        f.writelines(filename+"\n")
 
-
-lastfile=''
 while True:
     files = os.listdir(image_dir)
     if sorted(files)[-1] != lastfile: # give file time to fully transfer
         time.sleep(1)
     lastfile = sorted(files)[-1]
 
-    print(lastfile)
+    if time.time() > (start_time + 5):
+        print(time.time())
+        start_time = time.time()
+        
+        for filename in sorted(files):
+            if not check_log(filename):
+                print("file not in log")
+                print(filename)
+                newfile = True
+                add_log(filename)
+                img = cv2.imread(image_dir + filename)
+                cv2.destroyWindow("mosaic")
+                cv2.namedWindow("photo", cv2.WND_PROP_FULLSCREEN)
+                cv2.setWindowProperty("photo",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+                cv2.imshow("photo", img)
+                cv2.waitKey(1000)
+                break
+            newfile = False
 
-    if not check_log(lastfile):
-        print("file not in log")
-        add_log(lastfile)
-        cv2.setWindowProperty("picture",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
-        cv2.imshow("picture", image_dir+lastfile)
-        cv2.waitKey(5000)
-        cv2.destroyAllWindows()
-        # cvSetWindowProperty("main_win", CV_WINDOW_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-    else:
-        cv2.imshow("mosaic", "mosaic.jpg")
-        cv2.waitKey(5000)
-        cv2.destroyAllWindows()
+        if not newfile:
+            print("mosaic")
+            mosaic = cv2.imread("dj_ed-mosaic_20.jpg")
+            cv2.destroyWindow("photo")
+            cv2.namedWindow("mosaic", cv2.WND_PROP_FULLSCREEN)
+            cv2.setWindowProperty("mosaic",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+            cv2.imshow("mosaic", mosaic)
+            cv2.waitKey(1000)
