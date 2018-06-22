@@ -35,7 +35,7 @@ while True:
     if time.time() > (start_time + 5):
         print(time.time())
         start_time = time.time()
-        
+
         for filename in sorted(files):
             if not check_log(filename):
                 print("file not in log")
@@ -43,19 +43,21 @@ while True:
                 newfile = True
                 add_log(filename)
                 img = cv2.imread(image_dir + filename)
-                cv2.destroyWindow("mosaic")
+
                 cv2.namedWindow("photo", cv2.WND_PROP_FULLSCREEN)
                 cv2.setWindowProperty("photo",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
                 cv2.imshow("photo", img)
                 cv2.waitKey(1000)
+                cv2.destroyWindow("mosaic")
                 break
             newfile = False
 
         if not newfile:
             print("mosaic")
-            mosaic = cv2.imread("dj_ed-mosaic_20.jpg")
-            cv2.destroyWindow("photo")
+            mosaic = cv2.imread("dj_ed-mosaic.jpg")
             cv2.namedWindow("mosaic", cv2.WND_PROP_FULLSCREEN)
             cv2.setWindowProperty("mosaic",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
             cv2.imshow("mosaic", mosaic)
             cv2.waitKey(1000)
+            cv2.destroyWindow("photo")
+            start_time = start_time - 3
