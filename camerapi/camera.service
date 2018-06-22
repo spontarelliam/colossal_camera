@@ -1,0 +1,9 @@
+[Unit]
+Description=camerapi program that takes pictures and sends to displaypi
+
+[Service]
+ExecStart=/home/pi/colossal_camera/camerapi/camera.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
