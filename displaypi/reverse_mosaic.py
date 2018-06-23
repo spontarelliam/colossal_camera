@@ -14,6 +14,7 @@ import re
 import time
 import collections
 from collections import defaultdict
+import datetime
 
 tile_size = 50
 MAXREPEAT = 1000
@@ -22,6 +23,8 @@ SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
 HI_RES = 10
+day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
+
 
 def show(img):
     cv2.imshow('image', img)
@@ -34,13 +37,13 @@ class Mosaic:
         Initialize an empty mosaic with information about the target image.
         """
         self.populated_coords = []
-        self.path = os.path.splitext(target.path)[0] + '-mosaic.jpg'
+        self.path = os.path.join(os.path.dirname(target.path), 'mosaic.jpg')
 
         # tile_data stores tile path and best fitting coords {tile_path:[[x,y],[x,y]]}
         self.tile_data = defaultdict(list)
         self.tile_repeat = MAXREPEAT
         self.tile_size = tile_size
-        self.logfile = 'tile_placement.log'
+        self.logfile = os.path.join(os.path.dirname(target.path), 'tile_placement.log')
         self.target_img = target.img
         self.target = target
         self.hsv = defaultdict(list) # {"xcoord,ycoord":[blue,green,red]}
@@ -407,16 +410,33 @@ class Tile:
         self.img_hsv = cv2.merge([h, new_s, v])
         self.img = cv2.cvtColor(self.img_hsv, cv2.COLOR_HSV2BGR)
 
+        
+def check_files(tiles_path, target_file):
+    """
+    Make sure the tile path and target image exist
+    """
+    if not os.path.exists(tiles_path):
+        print("{} does not exist".format(tiles_path))
+        sys.exit()
+    if not os.path.exists(target_file):
+        print("{} does not exist".format(target_file))
+        sys.exit()
 
+    
 def main():
-    # target = Target('Web-Cover-Tony.png')
-    target = Target('dj_ed.jpg')
+    tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
+    mosaic_file = os.path.join("/home/pi/Pictures/", day_of_year, 'mosaic.jpg')
+    target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
+
+    check_files(tiles_path, target_file)
+
+    target = Target(target_file)
 
     mosaic = Mosaic(target)
     count = 0
-    tiles_path = '/home/pi/Pictures/'
 
     while True: # constantly look for new pictures
+        time.sleep(1)
         
         for (dirpath, dirnames, filenames) in os.walk(tiles_path):
             for tile_name in filenames:
@@ -437,3 +457,6 @@ if __name__ == "__main__":
 
     if sys.argv[1] == "clean":
         print("cleaning")
+
+    if sys.argv[1] == "hires":
+        print("making hi-res version of mosaic")

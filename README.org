@@ -1,2 +1,9 @@
 * Overview
 The colossal camera is built using two Raspberry Pi's: one to serve as the camera (camerapi) and one to interface with a display screen (displaypi).
+* Installation
+Copy .service files to /etc/systemd/system/
+On the camerapi, enable using,
+systemctl enable camera.service 
+
+On the displaypi, enable using
+systemctl enable reverse_mosaic.service show_image.service
