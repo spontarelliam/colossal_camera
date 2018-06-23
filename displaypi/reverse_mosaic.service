@@ -1,0 +1,9 @@
+[Unit]
+Description=runs reverse_mosaic 
+
+[Service]
+ExecStart=/home/pi/colossal_camera/displaypi/reverse_mosaic.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
