@@ -5,7 +5,7 @@ lastfile=''
 while True:
     files = os.listdir("/home/pi/Pictures/")
     if sorted(files)[-1] <> lastfile: # give file time to fully transfer
-        time.sleep(1)
+        time.sleep(2)
     lastfile = sorted(files)[-1]
     print(lastfile)
     img = cv2.imread("/home/pi/Pictures/"+lastfile)

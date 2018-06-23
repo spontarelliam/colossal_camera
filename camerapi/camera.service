@@ -6,4 +6,4 @@ ExecStart=/home/pi/colossal_camera/camerapi/camera.py
 Restart=always
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

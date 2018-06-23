@@ -12,8 +12,11 @@ import paramiko
 import datetime
 
 logfile = open("/home/pi/camera.log","a")
+day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
+working_dir = os.path.join('/home/pi/Pictures', day_of_year)
 
 GPIO.setmode(GPIO.BCM)
+flashLED = 25
 camera = PiCamera()
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -23,8 +26,13 @@ def take_pic():
     print("taking picture")
     camera.rotation = 180
     filename = 'Cheers-'+datetime.datetime.now().strftime("%y-%m-%d-%s")+'.jpg'
-    camera.capture('/home/pi/Pictures/'+filename)
+
+    GPIO.output(flashLED, 1)
+    camera.capture(os.path.join(working_dir, filename))
     logfile.writelines("picture taken")
+    time.sleep(0.1)
+    GPIO.output(flashLED, 0)
+    
     return filename
 
     
@@ -32,7 +40,7 @@ def send_pic(filename):
     print("sending picture")
     try:
         sftp = ssh.open_sftp()
-        sftp.put('/home/pi/Pictures/'+filename, '/home/pi/Pictures/'+filename)
+        sftp.put(os.path.join(working_dir,filename), os.path.join(working_dir,filename))
         sftp.put('/home/pi/camera.log', '/home/pi/camera.log')
         sftp.close()
         print(filename+" was sent!")
@@ -42,6 +50,9 @@ def send_pic(filename):
 
         
 def main():
+    GPIO.setup(26, GPIO.OUT, initial=1)
+    GPIO.setup(flashLED, GPIO.OUT, initial=0)
+    
     print("starting camera")
     logfile.writelines("camera started")
     button=18
@@ -64,9 +75,12 @@ def main():
             filename = take_pic()
             send_pic(filename)
     except KeyboardInterrupt:
+        GPIO.output(26, 0)
         GPIO.cleanup()
         ssh.close()
         logfile.close()
+
+    GPIO.output(26, 0)
     GPIO.cleanup()
 
 
