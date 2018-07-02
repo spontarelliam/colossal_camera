@@ -4,6 +4,9 @@
 # determine which tile image best fits. Reverse_mosaic does the opposite. It walks
 # through each tile image and determines the best fitting location in the target image.
 
+# Because this program was built to be run without any intervention, there are some hard
+# coded things like the target and source directories. Sorry.
+
 import os
 import sys
 import scipy
@@ -15,6 +18,7 @@ import time
 import collections
 from collections import defaultdict
 import datetime
+import argparse
 
 tile_size = 50
 MAXREPEAT = 1000
@@ -24,7 +28,9 @@ mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-co
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
 HI_RES = 10
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
-day_of_year= str(171)
+tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
+target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
+
 
 def show(img):
     cv2.imshow('image', img)
@@ -396,8 +402,7 @@ def check_files(tiles_path, target_file):
 
     
 def main():
-    tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
-    target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
+
 
     check_files(tiles_path, target_file)
 
@@ -424,10 +429,20 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--hires", help="generate a hi-resolution mosaic")
+    parser.add_argument("-t", "--tiledir", type=str, help="optionally provide tile source directory")
+    parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
+
+    args = parser.parse_args()
+    if args.hires:
+        print("make hi-res")
+    if args.tiledir:
+        print(args.tiledir)
+        tiles_path = args.tiledir
+    if args.target:
+        target_file = args.target
+        
+    sys.exit()
+    
     main()
-
-    if sys.argv[1] == "clean":
-        print("cleaning")
-
-    if sys.argv[1] == "hires":
-        print("making hi-res version of mosaic")
