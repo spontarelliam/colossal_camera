@@ -16,23 +16,22 @@ day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 working_dir = os.path.join('/home/pi/Pictures', day_of_year)
 
 GPIO.setmode(GPIO.BCM)
-flashLED = 25
+flashLED = 19
 camera = PiCamera()
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ssh.load_host_keys(os.path.expanduser(os.path.join("/home/pi", ".ssh", "known_hosts")))
 
+
 def take_pic():
     print("taking picture")
     camera.rotation = 180
     filename = 'Cheers-'+datetime.datetime.now().strftime("%y-%m-%d-%s")+'.jpg'
-
-    GPIO.output(flashLED, 1)
     camera.capture(os.path.join(working_dir, filename))
     logfile.writelines("picture taken")
+    GPIO.output(flashLED, 1)
     time.sleep(0.1)
     GPIO.output(flashLED, 0)
-    
     return filename
 
     
