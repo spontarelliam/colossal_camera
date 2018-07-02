@@ -17,7 +17,7 @@ from collections import defaultdict
 
 tile_size = 50
 MAXREPEAT = 1000
-THRESHOLD = 10
+THRESHOLD = 30
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
@@ -196,7 +196,8 @@ class Mosaic:
         """
         if not os.path.isfile(self.logfile):
             print("there is no log file")
-            return
+            with open(self.logfile, "w") as f:
+                f.writelines("")
 
         with open(self.logfile, 'r') as f:
             lines = f.readlines()
@@ -244,6 +245,7 @@ class Mosaic:
         # if partial mosaic exists
         if os.path.isfile(self.path):
             print('exists')
+            print(self.path)
             mosaic_img = cv2.imread(self.path)
         else:
             mosaic_img = np.zeros((self.target_img.shape), np.uint8)
@@ -299,7 +301,6 @@ class Mosaic:
             mosaic_img[row:row+tile_size,
                 col:col+tile_size] = tile.img[0:tile_size, 0:tile_size]
 
-
         cv2.imwrite(self.path, mosaic_img)
 
     def save_hi_res(self, target):
@@ -343,8 +344,8 @@ class Target:
         self.img = cv2.resize(target_img,
                                      (width*ENLARGEMENT,
                                       height*ENLARGEMENT))
-        self.img_hi_res = cv2.resize(target_img, (width*ENLARGEMENT*HI_RES,
-                                     height * ENLARGEMENT * HI_RES))
+        # self.img_hi_res = cv2.resize(target_img, (width*ENLARGEMENT*HI_RES,
+        #                              height * ENLARGEMENT * HI_RES))
 
         self.img_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         height, width = self.img.shape[:2]
@@ -409,25 +410,30 @@ class Tile:
 
 def main():
     # target = Target('Web-Cover-Tony.png')
-    target = Target('dj_ed.png')
-    # target = Target('6-color.png')
+    target = Target('dj_ed.jpg')
+
     mosaic = Mosaic(target)
     count = 0
-    tiles_path = 'pics'
-    for (dirpath, dirnames, filenames) in os.walk(tiles_path):
-        for tile_name in filenames:
-            if tile_name.lower().endswith('.jpg'):
-                tile = Tile(os.path.join(dirpath, tile_name))
-                mosaic.add_tile(tile)
-                print("There are {} empty coords remaining".format(len(mosaic.empty_coords)))
-                count += 1
+    tiles_path = '/home/pi/Pictures/'
 
-    mosaic.save_hi_res(target)
+    while True: # constantly look for new pictures
+        
+        for (dirpath, dirnames, filenames) in os.walk(tiles_path):
+            for tile_name in filenames:
+                if tile_name.lower().endswith('.jpg'):
+                    print(tile_name)
+                    tile = Tile(os.path.join(dirpath, tile_name))
+                    mosaic.add_tile(tile)
+                    print("There are {} empty coords remaining".
+                          format(len(mosaic.empty_coords)))
+                    count += 1
+        
+    
+    # mosaic.save_hi_res(target)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        # print('Usage: {0} <image> <tiles directory>\r').format(sys.argv[0],)
-        main()
-    else:
-        main(sys.argv[1], sys.argv[2])
+    main()
+
+    if sys.argv[1] == "clean":
+        print("cleaning")
