@@ -402,8 +402,6 @@ def check_files(tiles_path, target_file):
 
     
 def main():
-
-
     check_files(tiles_path, target_file)
 
     target = Target(target_file)
@@ -435,13 +433,14 @@ if __name__ == "__main__":
     parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
 
     args = parser.parse_args()
-    if args.hires:
-        print("make hi-res")
+
     if args.tiledir:
         print(args.tiledir)
         tiles_path = args.tiledir
     if args.target:
         target_file = args.target
+    if args.hires:
+        print("make hi-res")
         
     sys.exit()
     
