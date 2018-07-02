@@ -16,6 +16,7 @@ day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 working_dir = os.path.join('/home/pi/Pictures', day_of_year)
 
 GPIO.setmode(GPIO.BCM)
+statusLED = 26
 flashLED = 19
 camera = PiCamera()
 ssh = paramiko.SSHClient()
@@ -49,7 +50,7 @@ def send_pic(filename):
 
         
 def main():
-    GPIO.setup(26, GPIO.OUT, initial=1)
+    GPIO.setup(statusLED, GPIO.OUT, initial=1)
     GPIO.setup(flashLED, GPIO.OUT, initial=0)
     
     print("starting camera")
@@ -74,12 +75,12 @@ def main():
             filename = take_pic()
             send_pic(filename)
     except KeyboardInterrupt:
-        GPIO.output(26, 0)
+        GPIO.output(statusLED, 0)
         GPIO.cleanup()
         ssh.close()
         logfile.close()
 
-    GPIO.output(26, 0)
+    GPIO.output(statusLED, 0)
     GPIO.cleanup()
 
 
