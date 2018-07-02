@@ -84,6 +84,9 @@ class Mosaic:
         if tile.path in self.tile_data:
             print("{} is already in log file. Skipping.".format(tile.name))
             return "skip"
+        if 'mosaic' in tile.name or 'target' in tile.name:
+            print("skipping " + tile.name)
+            return "skip"
 
     def calc_diff(self, target_img, tile):
         target_avg_h, target_avg_s, target_avg_v, t = cv2.mean(target_img)
@@ -152,14 +155,7 @@ class Mosaic:
 
                     # s.fill(targ_s)
 
-
-                    new_h = np.array(h, copy=True)
-                    # new_h.fill(targ_h)
-                    for i,rows in enumerate(h):
-                        for j,val in enumerate(rows):
-                            avg = (targ_h - val) / 2
-                            new_h[i][j] = val + avg
-
+                    # start by tweaking saturation, has least impact on image recognition
                     new_s = np.array(s, copy=True)
                     # new_s.fill(targ_s)
                     for i,rows in enumerate(s):
@@ -167,11 +163,27 @@ class Mosaic:
                             avg = (targ_s - val) / 2
                             new_s[i][j] = val + avg
 
+                    # if avg_s diff is less than 10, start tweaking hue
+                    print("avg s diff")
+                    print(math.fabs(np.mean(targ_s - s)))
+                    new_h = np.array(h, copy=True)
+                    if math.fabs(np.mean(targ_s - s)) < 10:
+                        print("tweaking hue")
+                        # new_h.fill(targ_h)
+                        for i,rows in enumerate(h):
+                            for j,val in enumerate(rows):
+                                avg = (targ_h - val) / 2
+                                new_h[i][j] = val + avg
+
+                    print("avg h diff")
+                    print(math.fabs(np.mean(targ_h - h)))
                     new_v = np.array(v, copy=True)
-                    for i,rows in enumerate(v):
-                        for j,val in enumerate(rows):
-                            avg = (targ_v - val) / 2
-                            new_v[i][j] = val + avg
+                    if math.fabs(np.mean(targ_h - h)) < 10:
+                        print("tweaking value")
+                        for i,rows in enumerate(v):
+                            for j,val in enumerate(rows):
+                                avg = (targ_v - val) / 2
+                                new_v[i][j] = val + avg
 
                     tile.img_hsv = cv2.merge([new_h,new_s,new_v])
                     tile.img = cv2.cvtColor(tile.img_hsv, cv2.COLOR_HSV2BGR)
@@ -431,6 +443,7 @@ if __name__ == "__main__":
     parser.add_argument("--hires", help="generate a hi-resolution mosaic")
     parser.add_argument("-t", "--tiledir", type=str, help="optionally provide tile source directory")
     parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
+    parser.add_argument("-c", "--clean", type=str, help="remove tile_placement.log file")
 
     args = parser.parse_args()
 
@@ -441,7 +454,7 @@ if __name__ == "__main__":
         target_file = args.target
     if args.hires:
         print("make hi-res")
+    if args.clean:
+        print("remove tile_placement.log")
         
-    sys.exit()
-    
     main()
