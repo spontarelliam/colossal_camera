@@ -24,7 +24,7 @@ mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-co
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
 HI_RES = 10
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
-
+day_of_year= str(171)
 
 def show(img):
     cv2.imshow('image', img)
@@ -37,7 +37,7 @@ class Mosaic:
         Initialize an empty mosaic with information about the target image.
         """
         self.populated_coords = []
-        self.path = os.path.join(os.path.dirname(target.path), 'mosaic.jpg')
+        self.path = os.path.join(os.path.dirname(target.path), 'mosaic-'+day_of_year+'.jpg')
 
         # tile_data stores tile path and best fitting coords {tile_path:[[x,y],[x,y]]}
         self.tile_data = defaultdict(list)
@@ -247,8 +247,6 @@ class Mosaic:
         """
         # if partial mosaic exists
         if os.path.isfile(self.path):
-            print('exists')
-            print(self.path)
             mosaic_img = cv2.imread(self.path)
         else:
             mosaic_img = np.zeros((self.target_img.shape), np.uint8)
@@ -258,48 +256,9 @@ class Mosaic:
         mask[0:tile_size, 0:tile_size] = True
 
         best_coords = self.tile_data[tile.path]
-        print(tile.name)
-        print(best_coords)
-
 
         for coords in best_coords:
             row,col = coords
-
-
-
-            # print(self.hsv[str(coords[0])+','+str(coords[1])])
-
-            # cv2.imshow('target', tile_image)
-            # cv2.imshow('mosaic', mosaic_img)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-            # print("replacing {}".format(coords))
-            # print(tile_image[0:tile_size, 0:tile_size].shape[:2])
-            # print(mosaic_img[coords[1]:coords[1]+tile_size,
-            #                  coords[0]:coords[0]+tile_size].shape[:2])
-
-
-            # make perfect match
-            # target_tile = self.get_tile(self.target_img, coords)
-            # target_tile_hsv = cv2.cvtColor(target_tile, cv2.COLOR_BGR2HSV)
-            # target_avg_h, target_avg_s, target_avg_v, t = cv2.mean(target_tile_hsv)
-
-            # print(self.hsv)
-            # new_h,new_s,new_v = self.hsv[str(int(row))+","+str(int(col))]
-            # h, s, v = cv2.split(tile_img)
-            # h.fill(new_h)
-            # s.fill(new_s)
-            # v.fill(new_v)
-            # tile_img = cv2.merge([h, s, v])
-            # tile_img = cv2.cvtColor(tile_img, cv2.COLOR_HSV2BGR)
-
-
-            # res = cv2.bitwise_and(tile_image,tile_image,mask = target_tile)
-            # cv2.imshow('mosaic', tile_image)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
-            #-------------------------------------------------------------
 
             mosaic_img[row:row+tile_size,
                 col:col+tile_size] = tile.img[0:tile_size, 0:tile_size]
@@ -308,10 +267,13 @@ class Mosaic:
 
     def save_hi_res(self, target):
         """
-        Build high resolution version of the mosaic all at once.
+        Build high resolution version of the mosaic.
+        Meant to be run after all images have been collected, not
+        gradually like the low-res version.
         tile_size x 10
+
+        walk through all files in .log
         """
-        HI_RES = 10
         mosaic_img = np.zeros((target.img_hi_res), np.uint8)
 
         # Define mask
@@ -386,6 +348,7 @@ class Target:
 
 class Tile:
     def __init__(self, tile_path):
+        self.check_file(tile_path)
         self.path = tile_path
         self.name = os.path.basename(tile_path)
         self.full_img = cv2.imread(tile_path)
@@ -401,7 +364,16 @@ class Tile:
 
         self.best_coords = []
 
-
+    def check_file(self, tile_path):
+        """
+        Skip files for various reasons
+        0 filesize
+        name = target.jpg or mosaic.jpg
+        """
+        filesize=os.path.getsize(tile_path)
+        if filesize == 0:
+            print("file is empty")
+        
     def desaturate(self):
         self.avg_h, self.avg_s, self.avg_v, t = cv2.mean(self.img_hsv)
         h, s, v = cv2.split(self.img_hsv)
@@ -425,7 +397,6 @@ def check_files(tiles_path, target_file):
     
 def main():
     tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
-    mosaic_file = os.path.join("/home/pi/Pictures/", day_of_year, 'mosaic.jpg')
     target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
 
     check_files(tiles_path, target_file)
@@ -441,7 +412,7 @@ def main():
         for (dirpath, dirnames, filenames) in os.walk(tiles_path):
             for tile_name in filenames:
                 if tile_name.lower().endswith('.jpg'):
-                    print(tile_name)
+                    print("Finding home for {}".format(tile_name))
                     tile = Tile(os.path.join(dirpath, tile_name))
                     mosaic.add_tile(tile)
                     print("There are {} empty coords remaining".
