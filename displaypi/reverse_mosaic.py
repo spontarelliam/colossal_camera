@@ -21,12 +21,12 @@ import datetime
 import argparse
 
 tile_size = 50
-MAXREPEAT = 1000
+MAXREPEAT = 100
 THRESHOLD = 30
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
-HI_RES = 10
+HI_RES = 2
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
 target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
@@ -230,7 +230,9 @@ class Mosaic:
                 line = re.sub(r"\[|\]", "", line)
                 filename, *coords = line.split(',')
                 if len(coords) > 2:
-                    for x, y in zip(coords[:-1], coords[1:]):
+                    print(coords)
+                    for x, y in zip(coords[0::2], coords[1::2]):
+                        print(x, y)
                         self.tile_data[filename].append([int(x),int(y)])
                 else:
                     self.tile_data[filename].append([int(coords[0]), int(coords[1])])
@@ -288,24 +290,36 @@ class Mosaic:
         Build high resolution version of the mosaic.
         Meant to be run after all images have been collected, not
         gradually like the low-res version.
-        tile_size x 10
+        tile_size x HI_RES
 
-        walk through all files in .log
+        logfile has already been read into memory
+        walk through tile_data and build larger mosaic, don't try to recreate the best fits.
+
+        This doesn't work right now because color mods aren't stored in the logfile.
         """
-        mosaic_img = np.zeros((target.img_hi_res), np.uint8)
+        rows = self.target_img.shape[0] * HI_RES
+        cols = self.target_img.shape[1] * HI_RES
+        mosaic_img = np.zeros((rows,cols,3), np.uint8)
 
         # Define mask
         mask = np.zeros(mosaic_img.shape, dtype=np.bool)
         mask[0:tile_size*HI_RES, 0:tile_size* HI_RES] = True
 
-        for tile, best_coords in mosaic.tile_data.items():
+        for tilename, best_coords in self.tile_data.items():
             for coords in best_coords:
                 row,col = coords
-                row = row * HI_RES
-                col = col * HI_RES
+                startrow = HI_RES * row
+                startcol = HI_RES * col
+                tile = Tile(tilename)
+                print(tilename)
+                print("target rows={} cols={}".format(rows,cols))
+                print("tile orig position row={}, col={}".format(row,col))
+                print("tile hires position row={}, col={}".format(startrow,startcol))
+                print(tile_size, HI_RES)
 
-                mosaic_img[row:row+tile_size * HI_RES,
-                           col:col+tile_size * HI_RES] = tile.img[0:tile_size * HI_RES,
+
+                mosaic_img[startrow:startrow + (tile_size * HI_RES),
+                           startcol:startcol + (tile_size * HI_RES)] = tile.img_hi[0:tile_size * HI_RES,
                                                                       0:tile_size * HI_RES]
 
         cv2.imwrite(self.path+"-hi-res", mosaic_img)
@@ -372,6 +386,7 @@ class Tile:
         self.full_img = cv2.imread(tile_path)
         height, width = self.full_img.shape[:2]
         self.full_img = self.full_img[:, 0:height] # crop into square
+        self.img_hi = cv2.resize(self.full_img, (tile_size*HI_RES, tile_size*HI_RES))
         self.img = cv2.resize(self.full_img, (tile_size, tile_size))
         self.img_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         # self.desaturate()
@@ -413,17 +428,18 @@ def check_files(tiles_path, target_file):
         sys.exit()
 
     
-def main():
+def main(hires):
     check_files(tiles_path, target_file)
 
     target = Target(target_file)
-
     mosaic = Mosaic(target)
-    count = 0
+
+    if hires:
+        mosaic.save_hi_res(target)
+        return
 
     while True: # constantly look for new pictures
         time.sleep(1)
-        
         for (dirpath, dirnames, filenames) in os.walk(tiles_path):
             for tile_name in filenames:
                 if tile_name.lower().endswith('.jpg'):
@@ -432,10 +448,8 @@ def main():
                     mosaic.add_tile(tile)
                     print("There are {} empty coords remaining".
                           format(len(mosaic.empty_coords)))
-                    count += 1
-        
-    
-    # mosaic.save_hi_res(target)
+                    
+
 
 
 if __name__ == "__main__":
@@ -447,6 +461,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    hires = False
     if args.tiledir:
         print(args.tiledir)
         tiles_path = args.tiledir
@@ -454,7 +469,8 @@ if __name__ == "__main__":
         target_file = args.target
     if args.hires:
         print("make hi-res")
+        hires = True
     if args.clean:
         print("remove tile_placement.log")
         
-    main()
+    main(hires)
