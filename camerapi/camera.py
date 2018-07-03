@@ -28,10 +28,9 @@ def take_pic():
     print("taking picture")
     camera.rotation = 180
     filename = 'Cheers-'+datetime.datetime.now().strftime("%y-%m-%d-%s")+'.jpg'
-    camera.capture(os.path.join(working_dir, filename))
-    logfile.writelines("picture taken")
     GPIO.output(flashLED, 1)
-    time.sleep(0.1)
+    camera.capture(os.path.join(working_dir, filename))
+    logfile.writelines("picture taken\n")
     GPIO.output(flashLED, 0)
     return filename
 
@@ -44,17 +43,17 @@ def send_pic(filename):
         sftp.put('/home/pi/camera.log', '/home/pi/camera.log')
         sftp.close()
         print(filename+" was sent!")
-        logfile.writelines("picture sent")
+        logfile.writelines("picture sent\n")
     except:
         print("failed to send. red led")
 
         
 def main():
-    GPIO.setup(statusLED, GPIO.OUT, initial=1)
+
     GPIO.setup(flashLED, GPIO.OUT, initial=0)
     
     print("starting camera")
-    logfile.writelines("camera started")
+    logfile.writelines("camera started at {}\n".format(datetime.datetime.now()))
     button=18
 
     try:
@@ -85,4 +84,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        GPIO.setup(statusLED, GPIO.OUT, initial=1)
+        main()
+    except Exception as e:
+        print(e)
+        logfile.writelines(e)
+        GPIO.output(statusLED, 0)
+        GPIO.output(flashLED, 0)
+        GPIO.cleanup()
+        ssh.close()
+        logfile.close()
+        
