@@ -7,3 +7,10 @@ systemctl enable camera.service
 
 On the displaypi, enable using
 systemctl enable reverse_mosaic.service show_image.service
+* Reverse Mosaic
+** logfile
+information is stored in the following format
+tilepath, [row,col,h,s,v], [row,col,h,s,v]
+
+where h is hue, s saturation and v value. Each set of values corresponds to a position and color that has been chosen for that tile.
+

@@ -20,13 +20,13 @@ from collections import defaultdict
 import datetime
 import argparse
 
+HI_RES_MULT = 2
 tile_size = 50
 MAXREPEAT = 100
 THRESHOLD = 30
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
 ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
-HI_RES = 2
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
 target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
@@ -200,7 +200,10 @@ class Mosaic:
                 print("diff = {}".format(diff))
 
                 tile.best_coords.append(coords)
-                self.tile_data[tile.path].append(coords)
+                # self.tile_data[tile.path].append(coords)
+                data = [coords[0], coords[1],tile.avg_h, tile.avg_s, tile.avg_v]
+                print(data)
+                self.tile_data[tile.path].append(data)
                 self.populated_coords.append(coords)
                 self.empty_coords.remove(coords)
                 self.hsv[str(coords[0])+','+str(coords[1])] = [tile.avg_h,tile.avg_s,tile.avg_v]
@@ -230,12 +233,14 @@ class Mosaic:
                 line = re.sub(r"\[|\]", "", line)
                 filename, *coords = line.split(',')
                 if len(coords) > 2:
-                    print(coords)
-                    for x, y in zip(coords[0::2], coords[1::2]):
-                        print(x, y)
-                        self.tile_data[filename].append([int(x),int(y)])
+                    for row, col, h, s, v in zip(coords[0::5], coords[1::5],
+                                                 coords[2::5], coords[3::5], coords[4::5]):
+                        self.tile_data[filename].append([int(row),int(col),
+                                                         float(h),float(s), float(v)])
                 else:
-                    self.tile_data[filename].append([int(coords[0]), int(coords[1])])
+                    self.tile_data[filename].append([int(coords[0]), int(coords[1]),
+                                                     float(coords[2]), float(coords[3]),
+                                                     float(coord[4])])
 
 
     def write_log(self):
@@ -278,14 +283,22 @@ class Mosaic:
         best_coords = self.tile_data[tile.path]
 
         for coords in best_coords:
-            row,col = coords
+            row,col,*hsv = coords
 
             mosaic_img[row:row+tile_size,
                 col:col+tile_size] = tile.img[0:tile_size, 0:tile_size]
 
         cv2.imwrite(self.path, mosaic_img)
 
+        
     def save_hi_res(self, target):
+        """
+        Build high resolution version of the mosaic.
+        tile_size x HI_RES
+        """
+        pass
+        
+    def save_hi_res_old(self, target):
         """
         Build high resolution version of the mosaic.
         Meant to be run after all images have been collected, not
@@ -294,8 +307,6 @@ class Mosaic:
 
         logfile has already been read into memory
         walk through tile_data and build larger mosaic, don't try to recreate the best fits.
-
-        This doesn't work right now because color mods aren't stored in the logfile.
         """
         rows = self.target_img.shape[0] * HI_RES
         cols = self.target_img.shape[1] * HI_RES
@@ -305,18 +316,22 @@ class Mosaic:
         mask = np.zeros(mosaic_img.shape, dtype=np.bool)
         mask[0:tile_size*HI_RES, 0:tile_size* HI_RES] = True
 
-        for tilename, best_coords in self.tile_data.items():
-            for coords in best_coords:
-                row,col = coords
+        for tilename, best_fits in self.tile_data.items():
+            for data in best_fits:
+                row,col,h,s,v = data
                 startrow = HI_RES * row
                 startcol = HI_RES * col
                 tile = Tile(tilename)
-                print(tilename)
-                print("target rows={} cols={}".format(rows,cols))
-                print("tile orig position row={}, col={}".format(row,col))
-                print("tile hires position row={}, col={}".format(startrow,startcol))
-                print(tile_size, HI_RES)
 
+
+                tile.img_hi_hsv = cv2.merge([h,s,v])
+                tile.img_hi = cv2.cvtColor(tile.img_hi_hsv, cv2.COLOR_HSV2BGR)
+                
+                # print(tilename)
+                # print("target rows={} cols={}".format(rows,cols))
+                # print("tile orig position row={}, col={}".format(row,col))
+                # print("tile hires position row={}, col={}".format(startrow,startcol))
+                # print(tile_size, HI_RES)
 
                 mosaic_img[startrow:startrow + (tile_size * HI_RES),
                            startcol:startcol + (tile_size * HI_RES)] = tile.img_hi[0:tile_size * HI_RES,
@@ -386,7 +401,6 @@ class Tile:
         self.full_img = cv2.imread(tile_path)
         height, width = self.full_img.shape[:2]
         self.full_img = self.full_img[:, 0:height] # crop into square
-        self.img_hi = cv2.resize(self.full_img, (tile_size*HI_RES, tile_size*HI_RES))
         self.img = cv2.resize(self.full_img, (tile_size, tile_size))
         self.img_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         # self.desaturate()
@@ -428,15 +442,11 @@ def check_files(tiles_path, target_file):
         sys.exit()
 
     
-def main(hires):
+def main():
     check_files(tiles_path, target_file)
 
     target = Target(target_file)
     mosaic = Mosaic(target)
-
-    if hires:
-        mosaic.save_hi_res(target)
-        return
 
     while True: # constantly look for new pictures
         time.sleep(1)
@@ -451,10 +461,9 @@ def main(hires):
                     
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--hires", help="generate a hi-resolution mosaic")
+    parser.add_argument("-hi", "--hires", action='store_true', help="generate a hi-resolution mosaic")
     parser.add_argument("-t", "--tiledir", type=str, help="optionally provide tile source directory")
     parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
     parser.add_argument("-c", "--clean", type=str, help="remove tile_placement.log file")
@@ -470,7 +479,10 @@ if __name__ == "__main__":
     if args.hires:
         print("make hi-res")
         hires = True
+        ENLARGEMENT = ENLARGEMENT * HI_RES_MULT
+        tile_size = tile_size * HI_RES_MULT
     if args.clean:
         print("remove tile_placement.log")
+        print("remove mosaic.jpg")
         
-    main(hires)
+    main()
