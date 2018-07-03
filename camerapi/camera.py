@@ -61,7 +61,7 @@ def main():
         # ssh.connect("displaypi", username="pi", password="cheers2018")
         ssh.connect("192.168.4.1", username="pi", password="cheers2018")
         print("connected")
-        logfile.writelines("connected to displaypi")
+        logfile.writelines("connected to displaypi\n")
     except paramiko.SSHException:
         print("Connection to displaypi Failed")
     GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -70,7 +70,7 @@ def main():
         while True:
             print("waiting for button press")
             GPIO.wait_for_edge(button, GPIO.FALLING)
-            logfile.writelines("button pressed")
+            logfile.writelines("button pressed\n")
             filename = take_pic()
             send_pic(filename)
     except KeyboardInterrupt:
