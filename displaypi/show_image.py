@@ -12,17 +12,17 @@ import datetime
 day_of_year = datetime.datetime.now().timetuple().tm_yday
 image_dir = os.path.join("/home/pi/Pictures/", str(day_of_year))
 mosaic_file = os.path.join("/home/pi/Pictures/", str(day_of_year), 'mosaic-'+str(day_of_year)+'.jpg')
-logfile = "/home/pi/colossal_camera/displaypi/display.log"
-lastfile=''
-
-newfile = False
-firstrun = True
+logfile = os.path.join(image_dir, "display.log")
 
 
 def check_log(filename):
     """
     check if file already in log
     """
+    if not os.path.exists(logfile):
+        with open(logfile, "w") as f:
+            pass
+    
     with open(logfile, "r") as f:
         lines = f.readlines()
         for line in lines:
@@ -56,6 +56,8 @@ def main():
     if there are no new images to show, show the mosaic
     """
     start_time = time.time() - 5
+    newfile = False
+    firstrun = True
     
     if not os.path.exists(mosaic_file):
         print("{} mosaic image does not exist".format(mosaic_file))
@@ -67,6 +69,9 @@ def main():
             start_time = time.time()
             files = os.listdir(image_dir)
             for filename in sorted(files):
+                if not filename.lower().endswith('.jpg') or 'mosaic' in filename or 'target' in filename:
+                    print("skipping " + filename)
+                    break
                 if not check_log(filename):
                     print("{} not in log".format(filename))
                     if not check_file(filename):
@@ -74,7 +79,6 @@ def main():
                     newfile = True
                     add_log(filename)
                     img = cv2.imread(os.path.join(image_dir, filename))
-    
                     cv2.namedWindow("photo", cv2.WND_PROP_FULLSCREEN)
                     cv2.setWindowProperty("photo",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
                     cv2.imshow("photo", img)
