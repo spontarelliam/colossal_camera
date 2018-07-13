@@ -11,11 +11,10 @@ import datetime
 
 day_of_year = datetime.datetime.now().timetuple().tm_yday
 image_dir = os.path.join("/home/pi/Pictures/", str(day_of_year))
-mosaic_file = os.path.join("/home/pi/Pictures/", str(day_of_year), 'mosaic.jpg')
-
+mosaic_file = os.path.join("/home/pi/Pictures/", str(day_of_year), 'mosaic-'+str(day_of_year)+'.jpg')
 logfile = "/home/pi/colossal_camera/displaypi/display.log"
 lastfile=''
-start_time = time.time() -5
+
 newfile = False
 firstrun = True
 
@@ -56,6 +55,7 @@ def main():
     check if image has already been shown, if not, show it.
     if there are no new images to show, show the mosaic
     """
+    start_time = time.time() - 5
     
     if not os.path.exists(mosaic_file):
         print("{} mosaic image does not exist".format(mosaic_file))
