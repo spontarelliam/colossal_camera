@@ -40,9 +40,9 @@ def check_file(filename):
     Ensure that file has completed transfer by checking its size
     multiple times.
     """
-    for i in range(10):
+    for i in range(20):
         filesize=os.path.getsize(os.path.join(image_dir, filename))
-        time.sleep(1)
+        time.sleep(0.5)
         if filesize == os.path.getsize(os.path.join(image_dir, filename)):
             print('filesize unchanged')
             return 1
@@ -74,7 +74,7 @@ def main():
                     break
                 if not check_log(filename):
                     print("{} not in log".format(filename))
-                    if not check_file(filename):
+                    if check_file(filename) == 0:
                         break
                     newfile = True
                     add_log(filename)
