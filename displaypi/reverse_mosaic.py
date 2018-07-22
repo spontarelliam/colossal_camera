@@ -4,6 +4,9 @@
 # determine which tile image best fits. Reverse_mosaic does the opposite. It walks
 # through each tile image and determines the best fitting location in the target image.
 
+# Because this program was built to be run without any intervention, there are some hard
+# coded things like the target and source directories. Sorry.
+
 import os
 import sys
 import scipy
@@ -14,14 +17,20 @@ import re
 import time
 import collections
 from collections import defaultdict
+import datetime
+import argparse
 
+HI_RES_MULT = 5
 tile_size = 50
-MAXREPEAT = 1000
+MAXREPEAT = 100
 THRESHOLD = 30
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
-ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
-HI_RES = 10
+ENLARGEMENT = 1 # the mosaic image will be this many times wider and taller than the original
+day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
+tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
+target_file = os.path.join(tiles_path, 'target.jpg')
+
 
 def show(img):
     cv2.imshow('image', img)
@@ -34,13 +43,13 @@ class Mosaic:
         Initialize an empty mosaic with information about the target image.
         """
         self.populated_coords = []
-        self.path = os.path.splitext(target.path)[0] + '-mosaic.jpg'
+        self.path = os.path.join(os.path.dirname(target.path), 'mosaic-'+day_of_year+'.jpg')
 
         # tile_data stores tile path and best fitting coords {tile_path:[[x,y],[x,y]]}
         self.tile_data = defaultdict(list)
         self.tile_repeat = MAXREPEAT
         self.tile_size = tile_size
-        self.logfile = 'tile_placement.log'
+        self.logfile = os.path.join(os.path.dirname(target.path), 'tile_placement.log')
         self.target_img = target.img
         self.target = target
         self.hsv = defaultdict(list) # {"xcoord,ycoord":[blue,green,red]}
@@ -74,6 +83,9 @@ class Mosaic:
     def check_tile(self, tile):
         if tile.path in self.tile_data:
             print("{} is already in log file. Skipping.".format(tile.name))
+            return "skip"
+        if 'mosaic' in tile.name or 'target' in tile.name:
+            print("skipping " + tile.name)
             return "skip"
 
     def calc_diff(self, target_img, tile):
@@ -143,14 +155,7 @@ class Mosaic:
 
                     # s.fill(targ_s)
 
-
-                    new_h = np.array(h, copy=True)
-                    # new_h.fill(targ_h)
-                    for i,rows in enumerate(h):
-                        for j,val in enumerate(rows):
-                            avg = (targ_h - val) / 2
-                            new_h[i][j] = val + avg
-
+                    # start by tweaking saturation, has least impact on image recognition
                     new_s = np.array(s, copy=True)
                     # new_s.fill(targ_s)
                     for i,rows in enumerate(s):
@@ -158,11 +163,27 @@ class Mosaic:
                             avg = (targ_s - val) / 2
                             new_s[i][j] = val + avg
 
+                    # if avg_s diff is less than 10, start tweaking hue
+                    print("avg s diff")
+                    print(math.fabs(np.mean(targ_s - s)))
+                    new_h = np.array(h, copy=True)
+                    if math.fabs(np.mean(targ_s - s)) < 10:
+                        print("tweaking hue")
+                        # new_h.fill(targ_h)
+                        for i,rows in enumerate(h):
+                            for j,val in enumerate(rows):
+                                avg = (targ_h - val) / 2
+                                new_h[i][j] = val + avg
+
+                    print("avg h diff")
+                    print(math.fabs(np.mean(targ_h - h)))
                     new_v = np.array(v, copy=True)
-                    for i,rows in enumerate(v):
-                        for j,val in enumerate(rows):
-                            avg = (targ_v - val) / 2
-                            new_v[i][j] = val + avg
+                    if math.fabs(np.mean(targ_h - h)) < 10:
+                        print("tweaking value")
+                        for i,rows in enumerate(v):
+                            for j,val in enumerate(rows):
+                                avg = (targ_v - val) / 2
+                                new_v[i][j] = val + avg
 
                     tile.img_hsv = cv2.merge([new_h,new_s,new_v])
                     tile.img = cv2.cvtColor(tile.img_hsv, cv2.COLOR_HSV2BGR)
@@ -179,7 +200,10 @@ class Mosaic:
                 print("diff = {}".format(diff))
 
                 tile.best_coords.append(coords)
-                self.tile_data[tile.path].append(coords)
+                # self.tile_data[tile.path].append(coords)
+                data = [coords[0], coords[1],tile.avg_h, tile.avg_s, tile.avg_v]
+                print(data)
+                self.tile_data[tile.path].append(data)
                 self.populated_coords.append(coords)
                 self.empty_coords.remove(coords)
                 self.hsv[str(coords[0])+','+str(coords[1])] = [tile.avg_h,tile.avg_s,tile.avg_v]
@@ -209,10 +233,14 @@ class Mosaic:
                 line = re.sub(r"\[|\]", "", line)
                 filename, *coords = line.split(',')
                 if len(coords) > 2:
-                    for x, y in zip(coords[:-1], coords[1:]):
-                        self.tile_data[filename].append([int(x),int(y)])
+                    for row, col, h, s, v in zip(coords[0::5], coords[1::5],
+                                                 coords[2::5], coords[3::5], coords[4::5]):
+                        self.tile_data[filename].append([int(row),int(col),
+                                                         float(h),float(s), float(v)])
                 else:
-                    self.tile_data[filename].append([int(coords[0]), int(coords[1])])
+                    self.tile_data[filename].append([int(coords[0]), int(coords[1]),
+                                                     float(coords[2]), float(coords[3]),
+                                                     float(coord[4])])
 
 
     def write_log(self):
@@ -244,8 +272,6 @@ class Mosaic:
         """
         # if partial mosaic exists
         if os.path.isfile(self.path):
-            print('exists')
-            print(self.path)
             mosaic_img = cv2.imread(self.path)
         else:
             mosaic_img = np.zeros((self.target_img.shape), np.uint8)
@@ -255,74 +281,60 @@ class Mosaic:
         mask[0:tile_size, 0:tile_size] = True
 
         best_coords = self.tile_data[tile.path]
-        print(tile.name)
-        print(best_coords)
-
 
         for coords in best_coords:
-            row,col = coords
-
-
-
-            # print(self.hsv[str(coords[0])+','+str(coords[1])])
-
-            # cv2.imshow('target', tile_image)
-            # cv2.imshow('mosaic', mosaic_img)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-            # print("replacing {}".format(coords))
-            # print(tile_image[0:tile_size, 0:tile_size].shape[:2])
-            # print(mosaic_img[coords[1]:coords[1]+tile_size,
-            #                  coords[0]:coords[0]+tile_size].shape[:2])
-
-
-            # make perfect match
-            # target_tile = self.get_tile(self.target_img, coords)
-            # target_tile_hsv = cv2.cvtColor(target_tile, cv2.COLOR_BGR2HSV)
-            # target_avg_h, target_avg_s, target_avg_v, t = cv2.mean(target_tile_hsv)
-
-            # print(self.hsv)
-            # new_h,new_s,new_v = self.hsv[str(int(row))+","+str(int(col))]
-            # h, s, v = cv2.split(tile_img)
-            # h.fill(new_h)
-            # s.fill(new_s)
-            # v.fill(new_v)
-            # tile_img = cv2.merge([h, s, v])
-            # tile_img = cv2.cvtColor(tile_img, cv2.COLOR_HSV2BGR)
-
-
-            # res = cv2.bitwise_and(tile_image,tile_image,mask = target_tile)
-            # cv2.imshow('mosaic', tile_image)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
-            #-------------------------------------------------------------
+            row,col,*hsv = coords
 
             mosaic_img[row:row+tile_size,
                 col:col+tile_size] = tile.img[0:tile_size, 0:tile_size]
 
         cv2.imwrite(self.path, mosaic_img)
 
+
     def save_hi_res(self, target):
         """
-        Build high resolution version of the mosaic all at once.
-        tile_size x 10
+        Build high resolution version of the mosaic.
+        tile_size x HI_RES
         """
-        HI_RES = 10
-        mosaic_img = np.zeros((target.img_hi_res), np.uint8)
+        pass
+
+    def save_hi_res_old(self, target):
+        """
+        Build high resolution version of the mosaic.
+        Meant to be run after all images have been collected, not
+        gradually like the low-res version.
+        tile_size x HI_RES
+
+        logfile has already been read into memory
+        walk through tile_data and build larger mosaic, don't try to recreate the best fits.
+        """
+        rows = self.target_img.shape[0] * HI_RES
+        cols = self.target_img.shape[1] * HI_RES
+        mosaic_img = np.zeros((rows,cols,3), np.uint8)
 
         # Define mask
         mask = np.zeros(mosaic_img.shape, dtype=np.bool)
         mask[0:tile_size*HI_RES, 0:tile_size* HI_RES] = True
 
-        for tile, best_coords in mosaic.tile_data.items():
-            for coords in best_coords:
-                row,col = coords
-                row = row * HI_RES
-                col = col * HI_RES
+        for tilename, best_fits in self.tile_data.items():
+            for data in best_fits:
+                row,col,h,s,v = data
+                startrow = HI_RES * row
+                startcol = HI_RES * col
+                tile = Tile(tilename)
 
-                mosaic_img[row:row+tile_size * HI_RES,
-                           col:col+tile_size * HI_RES] = tile.img[0:tile_size * HI_RES,
+
+                tile.img_hi_hsv = cv2.merge([h,s,v])
+                tile.img_hi = cv2.cvtColor(tile.img_hi_hsv, cv2.COLOR_HSV2BGR)
+
+                # print(tilename)
+                # print("target rows={} cols={}".format(rows,cols))
+                # print("tile orig position row={}, col={}".format(row,col))
+                # print("tile hires position row={}, col={}".format(startrow,startcol))
+                # print(tile_size, HI_RES)
+
+                mosaic_img[startrow:startrow + (tile_size * HI_RES),
+                           startcol:startcol + (tile_size * HI_RES)] = tile.img_hi[0:tile_size * HI_RES,
                                                                       0:tile_size * HI_RES]
 
         cv2.imwrite(self.path+"-hi-res", mosaic_img)
@@ -383,6 +395,9 @@ class Target:
 
 class Tile:
     def __init__(self, tile_path):
+        if self.check_file(tile_path):
+            return
+
         self.path = tile_path
         self.name = os.path.basename(tile_path)
         self.full_img = cv2.imread(tile_path)
@@ -398,6 +413,19 @@ class Tile:
 
         self.best_coords = []
 
+    def check_file(self, tile_path):
+        """
+        Skip files for various reasons
+        0 filesize
+        name = target.jpg or mosaic.jpg
+        """
+        self.filesize = os.path.getsize(tile_path)
+        if self.filesize == 0:
+            print("file is empty, skipping")
+            return 1
+        else:
+            return 0
+
 
     def desaturate(self):
         self.avg_h, self.avg_s, self.avg_v, t = cv2.mean(self.img_hsv)
@@ -408,32 +436,63 @@ class Tile:
         self.img = cv2.cvtColor(self.img_hsv, cv2.COLOR_HSV2BGR)
 
 
-def main():
-    # target = Target('Web-Cover-Tony.png')
-    target = Target('dj_ed.jpg')
+def check_files(tiles_path, target_file):
+    """
+    Make sure the tile path and target image exist
+    """
+    if not os.path.exists(tiles_path):
+        print("{} does not exist".format(tiles_path))
+        sys.exit()
+    if not os.path.exists(target_file):
+        print("{} does not exist".format(target_file))
+        sys.exit()
 
+
+def main():
+    check_files(tiles_path, target_file)
+
+    target = Target(target_file)
     mosaic = Mosaic(target)
-    count = 0
-    tiles_path = '/home/pi/Pictures/'
 
     while True: # constantly look for new pictures
-        
+        time.sleep(1)
         for (dirpath, dirnames, filenames) in os.walk(tiles_path):
             for tile_name in filenames:
                 if tile_name.lower().endswith('.jpg'):
-                    print(tile_name)
+                    print("Finding home for {}".format(tile_name))
                     tile = Tile(os.path.join(dirpath, tile_name))
+                    if tile.filesize == 0:
+                        break
                     mosaic.add_tile(tile)
                     print("There are {} empty coords remaining".
                           format(len(mosaic.empty_coords)))
-                    count += 1
-        
-    
-    # mosaic.save_hi_res(target)
+
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-hi", "--hires", action='store_true', help="generate a hi-resolution mosaic")
+    parser.add_argument("-t", "--tiledir", type=str, help="optionally provide tile source directory")
+    parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
+    parser.add_argument("-c", "--clean", type=str, help="remove tile_placement.log file")
 
-    if sys.argv[1] == "clean":
-        print("cleaning")
+    args = parser.parse_args()
+
+    hires = False
+    if args.tiledir:
+        print(args.tiledir)
+        tiles_path = args.tiledir
+        target_file = os.path.join(tiles_path, 'target.jpg')
+    if args.target:
+        target_file = args.target
+    if args.hires:
+        print("make hi-res")
+        hires = True
+        ENLARGEMENT = ENLARGEMENT * HI_RES_MULT
+        tile_size = tile_size * HI_RES_MULT
+        time.sleep(1)
+    if args.clean:
+        print("remove tile_placement.log")
+        print("remove mosaic.jpg")
+
+    main()

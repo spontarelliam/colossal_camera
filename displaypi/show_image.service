@@ -1,0 +1,10 @@
+[Unit]
+Description=runs show_image
+
+[Service]
+User=pi
+ExecStart=/home/pi/colossal_camera/displaypi/show_image.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
