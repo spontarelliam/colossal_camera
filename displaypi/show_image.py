@@ -34,18 +34,18 @@ def add_log(filename):
     with open(logfile, "a") as f:
         f.writelines(filename+"\n")
 
+        
 def check_file(filename):
     """
     Ensure that file has completed transfer by checking its size
     multiple times.
     """
-    filesize=os.path.getsize(os.path.join(image_dir, filename))
     for i in range(10):
+        filesize=os.path.getsize(os.path.join(image_dir, filename))
+        time.sleep(1)
         if filesize == os.path.getsize(os.path.join(image_dir, filename)):
             print('filesize unchanged')
             return 1
-        else:
-            time.sleep(1)
     return 0
     
 
@@ -75,7 +75,7 @@ def main():
                 if not check_log(filename):
                     print("{} not in log".format(filename))
                     if not check_file(filename):
-                        continue
+                        break
                     newfile = True
                     add_log(filename)
                     img = cv2.imread(os.path.join(image_dir, filename))
