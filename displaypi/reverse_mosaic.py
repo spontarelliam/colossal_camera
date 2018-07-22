@@ -20,16 +20,16 @@ from collections import defaultdict
 import datetime
 import argparse
 
-HI_RES_MULT = 2
+HI_RES_MULT = 5
 tile_size = 50
 MAXREPEAT = 100
 THRESHOLD = 30
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
-ENLARGEMENT = 5 # the mosaic image will be this many times wider and taller than the original
+ENLARGEMENT = 1 # the mosaic image will be this many times wider and taller than the original
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
-target_file = os.path.join("/home/pi/Pictures/", day_of_year, 'target.jpg')
+target_file = os.path.join(tiles_path, 'target.jpg')
 
 
 def show(img):
@@ -290,14 +290,14 @@ class Mosaic:
 
         cv2.imwrite(self.path, mosaic_img)
 
-        
+
     def save_hi_res(self, target):
         """
         Build high resolution version of the mosaic.
         tile_size x HI_RES
         """
         pass
-        
+
     def save_hi_res_old(self, target):
         """
         Build high resolution version of the mosaic.
@@ -326,7 +326,7 @@ class Mosaic:
 
                 tile.img_hi_hsv = cv2.merge([h,s,v])
                 tile.img_hi = cv2.cvtColor(tile.img_hi_hsv, cv2.COLOR_HSV2BGR)
-                
+
                 # print(tilename)
                 # print("target rows={} cols={}".format(rows,cols))
                 # print("tile orig position row={}, col={}".format(row,col))
@@ -395,7 +395,9 @@ class Target:
 
 class Tile:
     def __init__(self, tile_path):
-        self.check_file(tile_path)
+        if self.check_file(tile_path):
+            return
+
         self.path = tile_path
         self.name = os.path.basename(tile_path)
         self.full_img = cv2.imread(tile_path)
@@ -417,10 +419,14 @@ class Tile:
         0 filesize
         name = target.jpg or mosaic.jpg
         """
-        filesize=os.path.getsize(tile_path)
-        if filesize == 0:
-            print("file is empty")
-        
+        self.filesize = os.path.getsize(tile_path)
+        if self.filesize == 0:
+            print("file is empty, skipping")
+            return 1
+        else:
+            return 0
+
+
     def desaturate(self):
         self.avg_h, self.avg_s, self.avg_v, t = cv2.mean(self.img_hsv)
         h, s, v = cv2.split(self.img_hsv)
@@ -429,7 +435,7 @@ class Tile:
         self.img_hsv = cv2.merge([h, new_s, v])
         self.img = cv2.cvtColor(self.img_hsv, cv2.COLOR_HSV2BGR)
 
-        
+
 def check_files(tiles_path, target_file):
     """
     Make sure the tile path and target image exist
@@ -441,7 +447,7 @@ def check_files(tiles_path, target_file):
         print("{} does not exist".format(target_file))
         sys.exit()
 
-    
+
 def main():
     check_files(tiles_path, target_file)
 
@@ -455,10 +461,12 @@ def main():
                 if tile_name.lower().endswith('.jpg'):
                     print("Finding home for {}".format(tile_name))
                     tile = Tile(os.path.join(dirpath, tile_name))
+                    if tile.filesize == 0:
+                        break
                     mosaic.add_tile(tile)
                     print("There are {} empty coords remaining".
                           format(len(mosaic.empty_coords)))
-                    
+
 
 
 if __name__ == "__main__":
@@ -474,6 +482,7 @@ if __name__ == "__main__":
     if args.tiledir:
         print(args.tiledir)
         tiles_path = args.tiledir
+        target_file = os.path.join(tiles_path, 'target.jpg')
     if args.target:
         target_file = args.target
     if args.hires:
@@ -481,8 +490,9 @@ if __name__ == "__main__":
         hires = True
         ENLARGEMENT = ENLARGEMENT * HI_RES_MULT
         tile_size = tile_size * HI_RES_MULT
+        time.sleep(1)
     if args.clean:
         print("remove tile_placement.log")
         print("remove mosaic.jpg")
-        
+
     main()
