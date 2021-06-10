@@ -45,13 +45,22 @@ def send_pic(filename):
         sftp.close()
         print(filename+" was sent!")
         logfile.writelines("picture sent\n")
-    except:
+    except Exception as e:
         print("failed to send. red led")
+        print(e)
 
         
 def main():
 
     GPIO.setup(flashLED, GPIO.OUT, initial=0)
+
+    # startup sequence
+    for i in range(5):
+        GPIO.output(flashLED, 1)
+        time.sleep(0.5)
+        GPIO.output(flashLED, 0)
+        time.sleep(0.5)
+            
     
     print("starting camera")
     logfile.writelines("camera started at {} on the {} day of year\n".format(datetime.datetime.now(), day_of_year))
