@@ -20,13 +20,13 @@ from collections import defaultdict
 import datetime
 import argparse
 
-HI_RES_MULT = 5
+HI_RES_MULT = 1
 tile_size = 50
-MAXREPEAT = 100
-THRESHOLD = 30
+MAXREPEAT = 500
+THRESHOLD = 40
 SATURATION = 10
 mosaic = defaultdict(list)  # {tile_file_name: [x-coord, y-coord],[x-coord, y-coord]}
-ENLARGEMENT = 1 # the mosaic image will be this many times wider and taller than the original
+ENLARGEMENT = 2 # the mosaic image will be this many times wider and taller than the original
 day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
 tiles_path = os.path.join("/home/pi/Pictures/", day_of_year)
 target_file = os.path.join(tiles_path, 'target.jpg')
@@ -354,8 +354,8 @@ class Target:
             height, width = target_img.shape[:2]
 
         self.img = cv2.resize(target_img,
-                                     (width*ENLARGEMENT,
-                                      height*ENLARGEMENT))
+                                     (int(width*ENLARGEMENT),
+                                      int(height*ENLARGEMENT)))
         # self.img_hi_res = cv2.resize(target_img, (width*ENLARGEMENT*HI_RES,
         #                              height * ENLARGEMENT * HI_RES))
 
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     parser.add_argument("-hi", "--hires", action='store_true', help="generate a hi-resolution mosaic")
     parser.add_argument("-t", "--tiledir", type=str, help="optionally provide tile source directory")
     parser.add_argument("-targ", "--target", type=str, help="optionally provide target file")
-    parser.add_argument("-c", "--clean", type=str, help="remove tile_placement.log file")
+    parser.add_argument("-c", "--clean", action='store_true', help="remove tile_placement.log file located in tiledir")
 
     args = parser.parse_args()
 
@@ -491,7 +491,9 @@ if __name__ == "__main__":
         ENLARGEMENT = ENLARGEMENT * HI_RES_MULT
         tile_size = tile_size * HI_RES_MULT
         time.sleep(1)
-    if args.clean:
+    if args.clean and args.tiledir:
+        os.remove(os.path.join(tiles_path, 'tile_placement.log'))
+        os.remove(os.path.join(tiles_path, 'mosaic-'+day_of_year+'.jpg'))
         print("remove tile_placement.log")
         print("remove mosaic.jpg")
 
