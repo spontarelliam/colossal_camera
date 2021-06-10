@@ -7,6 +7,20 @@ systemctl enable camera.service
 
 On the displaypi, enable using
 systemctl enable reverse_mosaic.service show_image.service
+
+Enable SSH on camerapi and displaypi
+$ raspi-config
+
+Generate ssh key on the camerapi, copy to the displaypi
+$ ssh-keygen
+$ ssh-copy-id pi@display
+
+Install python requirements on camerapi
+$ pip3 install -r requirements.txt
+
+Enable camera on camerapi
+$ raspi-config
+
 * Reverse Mosaic
 ** logfile
 information is stored in the following format
