@@ -12,7 +12,7 @@ import paramiko
 import datetime
 
 logfile = open("/home/pi/camera.log","a")
-day_of_year = str(datetime.datetime.now().timetuple().tm_yday)
+day_of_year = str(datetime.datetime.today().year) + "_" + str(datetime.datetime.now().timetuple().tm_yday)
 working_dir = os.path.join('/home/pi/Pictures', day_of_year)
 
 GPIO.setmode(GPIO.BCM)
@@ -24,6 +24,26 @@ ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ssh.load_host_keys(os.path.expanduser(os.path.join("/home/pi", ".ssh", "known_hosts")))
 
+def get_date():
+    """
+    Get time from displaypi as it has a RTC.
+    """
+    (si,so,se) = ssh.exec_command('date +%Y%m%d')
+    readList = so.readlines()
+    print(readList)
+    os.system("date +%Y%m%d -s "+ readList[0])
+
+def prep_directory():
+    if not os.path.exists(working_dir):
+        os.makedirs(working_dir)
+	
+    # make dir remotely
+    sftp = ssh.open_sftp()
+    try:
+        sftp.stat(working_dir)
+    except FileNotFoundError:
+        sftp.mkdir(working_dir)
+    sftp.close()
 
 def take_pic():
     print("taking picture")
@@ -51,15 +71,14 @@ def send_pic(filename):
 
         
 def main():
-
     GPIO.setup(flashLED, GPIO.OUT, initial=0)
 
     # startup sequence
     for i in range(5):
         GPIO.output(flashLED, 1)
-        time.sleep(0.5)
+        time.sleep(0.3)
         GPIO.output(flashLED, 0)
-        time.sleep(0.5)
+        time.sleep(0.3)
             
     
     print("starting camera")
@@ -68,13 +87,16 @@ def main():
 
     try:
         # dns not working
-        ssh.connect("displaypi", username="pi", password="cheers2018")
-        # ssh.connect("192.168.4.1", username="pi", password="cheers2018")
+        print("connecting to displaypi")
+        ssh.connect("displaypi", username="pi", password="cheers")
         print("connected")
         logfile.writelines("connected to displaypi\n")
     except paramiko.SSHException:
         print("Connection to displaypi Failed")
     GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    get_date()
+    prep_directory()
     
     try:
         while True:
@@ -99,7 +121,7 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(e)
-        logfile.writelines(e)
+        logfile.writelines(str(e))
         GPIO.output(statusLED, 0)
         GPIO.output(flashLED, 0)
         GPIO.cleanup()
