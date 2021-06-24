@@ -1,12 +1,43 @@
 * Overview
 The colossal camera is built using two Raspberry Pi's: one to serve as the camera (camerapi) and one to interface with a display screen (displaypi).
 * Installation
-Copy .service files to /etc/systemd/system/
-On the camerapi, enable using,
-systemctl enable camera.service 
 
-On the displaypi, enable using
-systemctl enable reverse_mosaic.service show_image.service
+** camerapi
+Enable SSH and camera
+$ raspi-config
+
+Generate ssh key on the camerapi, copy to the displaypi
+$ ssh-keygen
+$ ssh-copy-id pi@display
+
+Install python requirements on camerapi
+$ pip3 install -r requirements.txt
+
+Copy .service files to /etc/systemd/system/ and enable using,
+$ systemctl enable camera.service 
+
+** displaypi
+Enable SSH
+$ raspi-config
+
+install python-opencv
+$ apt install python-opencv
+
+Copy .service files to /etc/systemd/system/ and enable using,
+$ systemctl enable reverse_mosaic.service show_image.service
+
+*** Setup displaypi as AP
+Setup the display pi as an access point that the camerapi connects to.
+Most tutorials ultimately forward traffic to the internet through the host ethernet. This adds complexity and isn't desired in this project.
+https://www.raspberrypi.org/documentation/configuration/wireless/access-point-routed.md
+
+$ apt install hostapd dnsmasq
+
+$ sudo systemctl unmask hostapd
+$ sudo systemctl enable hostapd
+
+sudo DEBIAN_FRONTEND=noninteractive apt install -y netfilter-persistent iptables-persistent
+
 * Reverse Mosaic
 ** logfile
 information is stored in the following format
